@@ -1,0 +1,47 @@
+ext {
+    compileSdkVersion = 36
+    minSdkVersion = 24
+    targetSdkVersion = 36
+    androidxAppCompatVersion = "1.6.1"
+    androidxCoordinatorLayoutVersion = "1.2.0"
+    coreSplashScreenVersion = "1.0.1"
+    junitVersion = "4.13.2"
+    androidxJunitVersion = "1.1.5"
+    androidxEspressoCoreVersion = "3.5.1"
+}
+
+buildscript {
+    repositories {
+        maven { url 'https://maven.myket.ir' }
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.13.0'
+    }
+}
+
+allprojects {
+    repositories {
+        maven { url 'https://maven.myket.ir' }
+        google()
+        mavenCentral()
+    }
+}
+
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            android {
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            }
+        }
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}

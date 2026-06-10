@@ -1,0 +1,112 @@
+/* @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap'); */
+
+@import "tailwindcss";
+
+@theme {
+  --color-arcade-bg: #0a0a14;
+  --color-neon-cyan: #00f3ff;
+  --color-neon-cyan: #00f3ff;
+  --color-neon-yellow: #ffcc00;
+  --color-neon-cyan: #00f3ff;
+  --font-display: "Orbitron", monospace;
+  --font-body: "Rajdhani", sans-serif;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-arcade-bg);
+  background-image: 
+    repeating-linear-gradient(90deg, rgba(0, 243, 255, 0.08) 0px, rgba(0, 243, 255, 0.08) 1px, transparent 1px, transparent 40px),
+    repeating-linear-gradient(0deg, rgba(255, 0, 170, 0.08) 0px, rgba(255, 0, 170, 0.08) 1px, transparent 1px, transparent 40px);
+  color: #e0e0ff;
+}
+
+
+
+
+/* Custom scrollbar arcade */
+::-webkit-scrollbar {
+  width: 2px;
+  background: #0a0a14;
+}
+::-webkit-scrollbar-track {
+  background: #1a1a2e;
+  border-left: 1px solid #00f3ff;
+}
+::-webkit-scrollbar-thumb {
+  background: #00f3ff;
+  border-radius: 0;
+}
+
+/* Arcade card */
+.arcade-card {
+  background: rgba(10, 10, 20, 0.85);
+  backdrop-filter: blur(2px);
+  border: 1px solid #00f3ff;
+  border-radius: 24px;
+  box-shadow: 0 0 12px rgba(0, 243, 255, 0.3), inset 0 0 8px rgba(0, 243, 255, 0.1);
+  transition: all 0.1s ease;
+}
+.arcade-card:hover {
+  box-shadow: 0 0 20px rgba(0, 243, 255, 0.6), inset 0 0 12px rgba(27, 111, 212, 0.2);
+}
+
+/* Arcade button */
+.arcade-btn {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  background: linear-gradient(145deg, #1a1a2e, #0a0a14);
+  border: none;
+  border-radius: 40px;
+  padding: 0.6rem 1.5rem;
+  color: #00f3ff;
+  text-shadow: 0 0 4px #00f3ff;
+  box-shadow: 0 4px 0 #0088aa, 0 2px 12px rgba(0, 243, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.05s linear;
+}
+.arcade-btn:active {
+  transform: translateY(4px);
+  box-shadow: 0 0px 0 #0088aa, 0 2px 12px rgba(0, 243, 255, 0.6);
+}
+.arcade-btn-primary {
+  background: linear-gradient(145deg, #2a1a3a, #1a0a2a);
+  color: #00f3ff;
+  text-shadow: 0 0 4px #00f3ff;
+  box-shadow: 0 4px 0 #00f3ff;
+}
+.arcade-btn-primary:active {
+  transform: translateY(4px);
+  box-shadow: 0 0px 0 #00f3ff;
+}
+
+
+
+/* Input arcade */
+.arcade-input {
+  background: #0a0a14;
+  border: 1px solid #00f3ff;
+  border-radius: 16px;
+  padding: 0.5rem 1rem;
+  color: #00f3ff;
+  font-family: var(--font-body);
+  outline: none;
+  transition: all 0.1s;
+}
+.arcade-input:focus {
+  border-color: #00f3ff;
+  box-shadow: 0 0 8px #00f3ff;
+}
+
+/* Glow animation for active turn */
+@keyframes neonPulse {
+  0% { text-shadow: 0 0 2px #00f3ff, 0 0 4px #00f3ff; }
+  50% { text-shadow: 0 0 8px #00f3ff, 0 0 16px #00f3ff; }
+  100% { text-shadow: 0 0 2px #00f3ff, 0 0 4px #00f3ff; }
+}
+.arcade-glow {
+  animation: neonPulse 1s infinite;
+}
