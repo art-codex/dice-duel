@@ -277,5 +277,5 @@ See the LICENSE file for more information.
 </p>
 
 <p align="center">
-Made with ❤️ by Dev-Py
+Made with ❤️ by Art Codex
 </p>
