@@ -1,7 +1,7 @@
 # 🎲 Dice Duel
 
 <p align="center">
-  <img src="https://dev-py.ir/project/assets/logo.png" alt="Dice Duel Logo" width="180">
+  <img src="client/public/dice-logo.png" alt="Dice Duel Logo" width="180">
 </p>
 
 <p align="center">
