@@ -68,6 +68,16 @@ function clearBotTimeout(roomId) {
   }
 }
 
+// ???? ???? ???? ??? ?????? ?? ????
+function removePlayer(roomId, userId) {
+  const room = rooms.get(roomId);
+  if (!room) return;
+  room.players = room.players.filter(p => p !== userId);
+  if (room.players.length === 0) {
+    deleteRoom(roomId);
+  }
+}
+
 module.exports = {
   createRoom,
   joinRoom,
@@ -77,4 +87,5 @@ module.exports = {
   isRoomWaiting,
   setBotTimeout,
   clearBotTimeout,
+  removePlayer,
 };

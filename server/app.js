@@ -2,6 +2,7 @@ const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 const path = require('path');
+const serveStatic = require('serve-static');
 const authRoutes = require('./routes/auth.routes');
 const coinRoutes = require('./routes/coin.routes');
 const taskRoutes = require('./routes/task.routes');
@@ -12,10 +13,8 @@ const botRoutes = require('./routes/bot.routes');
 const userRoutes = require('./routes/user.routes');
 const tournamentRoutes = require('./routes/tournament.routes');
 
-// ✅ ابتدا app ساخته می‌شود
 const app = express();
 
-// سپس میدلورها
 app.use(cors({ origin: true, credentials: true }));
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -25,10 +24,15 @@ app.use(helmet({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// سرویس فایل‌های استاتیک برای آواتارها
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// ??? ???? ???????? ????? ??? ?? ???????? ?? .jfif
+app.use('/uploads', serveStatic(path.join(__dirname, 'uploads'), {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.jfif')) {
+      res.setHeader('Content-Type', 'image/jpeg');
+    }
+  }
+}));
 
-// مسیرهای API
 app.use('/api/auth', authRoutes);
 app.use('/api/coins', coinRoutes);
 app.use('/api/tasks', taskRoutes);
@@ -39,7 +43,6 @@ app.use('/api/bot', botRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tournament', tournamentRoutes);
 
-// هندلر خطا (در انتها)
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(err.status || 500).json({ message: err.message || 'Internal server error' });

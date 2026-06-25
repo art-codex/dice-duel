@@ -1,5 +1,5 @@
 
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
@@ -38,6 +38,10 @@ function AppContent() {
           <Routes location={location} key={location.pathname}>
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+
+	    <Route path="/game" element={<ProtectedRoute><Navigate to="/" replace /></ProtectedRoute>} />
+  	    <Route path="/game/" element={<ProtectedRoute><Navigate to="/" replace /></ProtectedRoute>} />
+
             <Route path="/game/:roomId" element={<ProtectedRoute><ProtectedOnlineRoute><GameRoom />
               </ProtectedOnlineRoute></ProtectedRoute>}/>
             <Route path="/wallet" element={<ProtectedRoute><WalletPage /></ProtectedRoute>} />

@@ -1,12 +1,11 @@
 const db = require('../config/db');
 
 function createUser(username, passwordHash, phone, lastName, email = null) {
-  db.run(
+  return db.runAndGetId(
     `INSERT INTO users (username, passwordHash, phone, lastName, email) 
      VALUES (?, ?, ?, ?, ?)`,
     [username, passwordHash, phone, lastName, email]
   );
-  return db.getLastInsertId();
 }
 
 function findUserById(id) {
@@ -28,13 +27,11 @@ function updateLocked(userId, amount) {
 }
 
 function getUserBalance(userId) {
-  if (userId === 0) return { coins: 0, locked: 0, available: 0 }; // house نباید به عنوان کاربر عادی دیده شود
   const user = findUserById(userId);
   if (!user) return null;
   return {
     coins: user.coins,
-    locked: user.locked,
-    available: user.coins - user.locked,
+    available: user.coins,
   };
 }
 
@@ -53,36 +50,6 @@ function setDailyRewardClaimed(userId, isoDate) {
   db.run('UPDATE users SET dailyRewardClaimedAt = ? WHERE id = ?', [isoDate, userId]);
 }
 
-
-function setInstagramVerified(userId, value = 1) {
-  db.run('UPDATE users SET instagramVerified = ? WHERE id = ?', [value, userId]);
-}
-
-function getInstagramVerified(userId) {
-  const user = findUserById(userId);
-  return user ? user.instagramVerified : 0;
-}
-
-function setRobikaVerified(userId, value = 1) {
-  db.run('UPDATE users SET robikaVerified = ? WHERE id = ?', [value, userId]);
-}
-
-function getRobikaVerified(userId) {
-  const user = findUserById(userId);
-  return user ? user.robikaVerified : 0;
-}
-
-
-function updateWins(userId) {
-  db.run('UPDATE users SET wins = wins + 1 WHERE id = ?', [userId]);
-}
-
-function updateLosses(userId) {
-  db.run('UPDATE users SET losses = losses + 1 WHERE id = ?', [userId]);
-}
-
-
-
 function isAdmin(userId) {
   const user = findUserById(userId);
   return user && user.role === 'admin';
@@ -99,6 +66,4 @@ module.exports = {
   findByReferralCode,
   setDailyRewardClaimed,
   isAdmin,
-  updateWins,
-  updateLosses,
 };

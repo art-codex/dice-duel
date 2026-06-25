@@ -72,6 +72,10 @@ export default function HomePage() {
       setErrorMsg('Bet must be between 10 and 1000 coins');
       return;
     }
+if (balance && bet > balance.available) {
+  setErrorMsg(`You only have ${balance.available} coins`);
+  return;
+}
     if (!socket) return;
     socket.emit('room:create', { bet }, (response) => {
       if (response.success) navigate(`/game/${response.roomId}?mode=waiting`);

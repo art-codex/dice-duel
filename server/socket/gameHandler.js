@@ -10,24 +10,20 @@ module.exports = function gameHandler(io, socket) {
     try {
       const bet = Number(data.bet);
       if (![10, 25, 50, 100, 250, 500].includes(bet) && (bet < 10 || bet > 1000)) {
-        return callback({ success: false, message: 'شرط نامعتبر' });
+        return callback({ success: false, message: '??? ???????' });
       }
-      coinService.lockCoins(socket.userId, bet);
+      
+      // ??? ??? (??? ?????? ?????? ????? ???? ?????? ? catch ??????)
+      coinService.deductCoins(socket.userId, bet);
       const roomId = roomService.createRoom(socket.userId, bet);
       socket.join(roomId);
       socket.currentRoomId = roomId;
       callback({ success: true, roomId });
       io.emit('lobby:rooms', roomService.getOpenRooms());
-      console.log(`🆕 Room created: ${roomId} by user ${socket.userId}, bet=${bet}`);
 
-      // تایمر 60 ثانیه برای ورود خودکار ربات
       const timeoutId = setTimeout(() => {
-        console.log(`⏰ Checking room ${roomId} for auto-bot...`);
         if (roomService.isRoomWaiting(roomId)) {
-          console.log(`🤖 Auto-adding bot to room ${roomId}`);
           joinBotToRoom(io, roomId);
-        } else {
-          console.log(`❌ Room ${roomId} is not waiting, skipping bot.`);
         }
       }, 60000);
       roomService.setBotTimeout(roomId, timeoutId);
@@ -42,14 +38,15 @@ module.exports = function gameHandler(io, socket) {
       const { roomId } = data;
       const room = roomService.getRoom(roomId);
       if (!room) throw new Error('Room not found');
-      coinService.lockCoins(socket.userId, room.bet);
+      
+      coinService.deductCoins(socket.userId, room.bet);
       roomService.joinRoom(roomId, socket.userId);
       socket.join(roomId);
       socket.currentRoomId = roomId;
-      roomService.clearBotTimeout(roomId); // ربات دیگر نیازی نیست
+      roomService.clearBotTimeout(roomId); 
       callback({ success: true });
       io.emit('lobby:rooms', roomService.getOpenRooms());
-      console.log(`👥 User ${socket.userId} joined room ${roomId}`);
+      
       setTimeout(() => {
         const updatedRoom = roomService.getRoom(roomId);
         if (updatedRoom && updatedRoom.status === 'playing') {
@@ -74,12 +71,7 @@ module.exports = function gameHandler(io, socket) {
       'INSERT INTO chat_messages (roomId, userId, username, message, createdAt) VALUES (?, ?, ?, ?, datetime("now"))',
       [roomId, socket.userId, socket.username, message]
     );
-    io.to(roomId).emit('chat:message', {
-      userId: socket.userId,
-      username: socket.username,
-      message,
-      timestamp: Date.now()
-    });
+    io.to(roomId).emit('chat:message', { userId: socket.userId, username: socket.username, message, timestamp: Date.now() });
   });
 
   socket.on('game:roll', () => {
@@ -95,138 +87,133 @@ module.exports = function gameHandler(io, socket) {
     }
   });
 
-
-socket.on('invite:send', ({ targetUserId, bet }, callback) => {
-  const inviterId = socket.userId;
-  const inviterName = socket.username;
-  const roomId = roomService.createRoom(inviterId, bet);
-  socket.join(roomId);
-  socket.currentRoomId = roomId;
-  // ذخیره موقت اطلاعات دعوت (اختیاری)
-  io.to(`user_${targetUserId}`).emit('invite:received', {
-    fromUserId: inviterId,
-    fromUsername: inviterName,
-    bet,
-    roomId,
-  });
-  if (callback) callback({ success: true });
-});
-
-socket.on('invite:accept', ({ inviterId, roomId }) => {
-  console.log(`📨 [invite:accept] from user ${socket.userId} for room ${roomId}, inviter=${inviterId}`);
-  try {
-    const invitedId = socket.userId;
-    roomService.joinRoom(roomId, invitedId);
-    socket.join(roomId);
-    socket.currentRoomId = roomId;
-    // ارسال به فرستنده دعوت (از طریق روم اختصاصی او)
-    io.to(`user_${inviterId}`).emit('invite:accepted', { roomId });
-    const room = roomService.getRoom(roomId);
-    if (room && room.status === 'playing') {
-      startTurn(io, roomId, room.players[0]);
+  // ========== ????? ???? ==========
+  socket.on('invite:send', ({ targetUserId, bet }, callback) => {
+    if (!targetUserId || !bet) {
+      if (callback) callback({ success: false, message: 'Invalid data' });
+      return;
     }
-    console.log(`✅ Invite accepted. Inviter ${inviterId} notified, game started.`);
-  } catch (err) {
-    console.error('❌ Accept invite error:', err.message);
-    socket.emit('game:error', { message: err.message });
-  }
-});
+    const validBets = [10, 25, 50, 100, 250, 500];
+    if (!validBets.includes(bet) && (bet < 10 || bet > 1000)) {
+      if (callback) callback({ success: false, message: '??? ???????' });
+      return;
+    }
 
+    const inviterId = socket.userId;
+    try {
+      coinService.deductCoins(inviterId, bet); // ??? ??? ???????
+      
+      const roomId = roomService.createRoom(inviterId, bet);
+      socket.join(roomId);
+      socket.currentRoomId = roomId;
+      
+      io.to(`user_${targetUserId}`).emit('invite:received', {
+        fromUserId: inviterId, fromUsername: socket.username, bet, roomId,
+      });
+      if (callback) callback({ success: true, roomId });
+    } catch (err) {
+      if (callback) callback({ success: false, message: err.message });
+    }
+  });
+
+  socket.on('invite:accept', ({ inviterId, roomId }) => {
+    try {
+      const room = roomService.getRoom(roomId);
+      if (!room) throw new Error('Room not found');
+
+      coinService.deductCoins(socket.userId, room.bet); // ??? ??? ???????
+      
+      roomService.joinRoom(roomId, socket.userId);
+      socket.join(roomId);
+      socket.currentRoomId = roomId;
+      
+      io.to(`user_${inviterId}`).emit('invite:accepted', { roomId });
+      
+      const updatedRoom = roomService.getRoom(roomId);
+      if (updatedRoom && updatedRoom.status === 'playing') {
+        startTurn(io, roomId, updatedRoom.players[0]);
+      }
+    } catch (err) {
+      socket.emit('game:error', { message: err.message });
+    }
+  });
 
   socket.on('room:leave', (roomId) => {
     const room = roomService.getRoom(roomId);
-    if (room && room.status === 'waiting' && room.players[0] === socket.userId) {
-      coinService.unlockCoins(socket.userId, room.bet);
-      roomService.deleteRoom(roomId);
-      io.emit('lobby:rooms', roomService.getOpenRooms());
+    if (!room) return;
+
+    if (room.status === 'waiting') {
+      // ??? ???? ???? ????? ??? ?????????
+      coinService.refundCoins(socket.userId, room.bet);
+      
+      if (room.players[0] === socket.userId) {
+        roomService.deleteRoom(roomId);
+      } else if (typeof roomService.removePlayer === 'function') {
+        roomService.removePlayer(roomId, socket.userId);
+      }
+    } else if (room.status === 'playing') {
+      // ??? ???? ???? ???? ????? ?????? ??? (Forfeit)
+      handleForfeit(io, roomId, socket.userId);
     }
+
     socket.leave(roomId);
     if (socket.currentRoomId === roomId) socket.currentRoomId = null;
+    io.emit('lobby:rooms', roomService.getOpenRooms());
   });
 
   socket.on('lobby:get_rooms', () => {
     socket.emit('lobby:rooms', roomService.getOpenRooms());
   });
 
-  // ========== INVITE SYSTEM ==========
-socket.on('invite:send', ({ targetUserId, bet }, callback) => {
-  console.log(`📨 [invite:send] from user ${socket.userId} to user ${targetUserId}, bet=${bet}`);
-  if (!targetUserId || !bet) {
-    console.log('❌ Invalid invite data');
-    if (callback) callback({ error: 'Invalid data' });
-    return;
-  }
-  const inviterId = socket.userId;
-  const inviterName = socket.username;
-  try {
-    // ایجاد اتاق بازی
-    const roomId = roomService.createRoom(inviterId, bet);
-    socket.join(roomId);
-    socket.currentRoomId = roomId;
-    // ارسال به کاربر هدف (از طریق روم اختصاصی او)
-    io.to(`user_${targetUserId}`).emit('invite:received', {
-      fromUserId: inviterId,
-      fromUsername: inviterName,
-      bet,
-      roomId,
-    });
-    console.log(`✅ Invite sent to user ${targetUserId} (room: ${roomId})`);
-    if (callback) callback({ success: true, roomId });
-  } catch (err) {
-    console.error('❌ Invite error:', err.message);
-    if (callback) callback({ error: err.message });
-  }
-});
-
-socket.on('invite:accept', ({ inviterId, roomId }) => {
-  console.log(`📨 [invite:accept] from user ${socket.userId} for room ${roomId}`);
-  try {
-    const invitedId = socket.userId;
-    roomService.joinRoom(roomId, invitedId);
-    socket.join(roomId);
-    socket.currentRoomId = roomId;
-    io.to(`user_${inviterId}`).emit('invite:accepted', { roomId });
-    const room = roomService.getRoom(roomId);
-    if (room && room.status === 'playing') {
-      startTurn(io, roomId, room.players[0]);
-    }
-    console.log(`✅ User ${invitedId} accepted invite, game started`);
-  } catch (err) {
-    console.error('❌ Accept invite error:', err.message);
-    socket.emit('game:error', { message: err.message });
-  }
-});
-
-
   socket.on('disconnect', () => {
     if (socket.currentRoomId) {
       const room = roomService.getRoom(socket.currentRoomId);
-      if (room && room.status === 'waiting' && room.players[0] === socket.userId) {
-        setTimeout(() => {
-          const stillRoom = roomService.getRoom(socket.currentRoomId);
-          if (stillRoom && stillRoom.status === 'waiting') {
-            coinService.unlockCoins(socket.userId, room.bet);
-            roomService.deleteRoom(socket.currentRoomId);
-            io.emit('lobby:rooms', roomService.getOpenRooms());
+      if (room) {
+        if (room.status === 'waiting') {
+          if (room.players[0] === socket.userId) {
+            setTimeout(() => {
+              const stillRoom = roomService.getRoom(socket.currentRoomId);
+              if (stillRoom && stillRoom.status === 'waiting' && stillRoom.players[0] === socket.userId) {
+                coinService.refundCoins(socket.userId, room.bet);
+                roomService.deleteRoom(socket.currentRoomId);
+                io.emit('lobby:rooms', roomService.getOpenRooms());
+              }
+            }, 60000);
+          } else {
+            coinService.refundCoins(socket.userId, room.bet);
+            if (typeof roomService.removePlayer === 'function') {
+              roomService.removePlayer(socket.currentRoomId, socket.userId);
+            }
           }
-        }, 60000);
+        } else if (room.status === 'playing') {
+          handleForfeit(io, socket.currentRoomId, socket.userId);
+        }
       }
     }
   });
 
-  // ========== توابع کمکی برای ربات ==========
+  // ========== ????? ???? ==========
+
+  function handleForfeit(io, roomId, userId) {
+    const room = roomService.getRoom(roomId);
+    if (!room || room.status !== 'playing') return;
+
+    const opponentId = room.players.find(p => p !== userId);
+    if (opponentId !== undefined) {
+      // ???? ????? ????? ?????? ? ??? ?? ??????
+      coinService.finalizeGame(opponentId, userId, room.bet);
+    }
+
+    roomService.deleteRoom(roomId);
+    io.emit('lobby:rooms', roomService.getOpenRooms());
+    io.to(roomId).emit('game:forfeit', { userId, winnerId: opponentId });
+  }
 
   function joinBotToRoom(io, roomId) {
     const room = roomService.getRoom(roomId);
     if (!room || room.status !== 'waiting') return;
 
-    // اطمینان از وجود ربات در دیتابیس (id=-1)
-    try {
-      coinService.lockCoins(-1, room.bet);
-    } catch (err) {
-      console.error('Failed to lock coins for bot:', err);
-      return;
-    }
+    coinService.deductCoins(-1, room.bet); // ???? ???? ??? ???? ???????
     room.players.push(-1);
     room.status = 'playing';
     room.isBotGame = true;
@@ -234,7 +221,6 @@ socket.on('invite:accept', ({ inviterId, roomId }) => {
     roomService.clearBotTimeout(roomId);
     io.emit('lobby:rooms', roomService.getOpenRooms());
     io.to(roomId).emit('game:your_turn', { playerId: room.currentTurn });
-    console.log(`🤖 Bot joined room ${roomId}, currentTurn=${room.currentTurn}`);
 
     if (room.rollTimer) clearTimeout(room.rollTimer);
     room.rollTimer = setTimeout(() => {
@@ -272,15 +258,11 @@ socket.on('invite:accept', ({ inviterId, roomId }) => {
     }, delay);
   }
 
-  // ========== توابع کمکی برای بازی معمولی ==========
-
   function startTurn(io, roomId, playerId) {
     const room = roomService.getRoom(roomId);
     if (!room || room.status !== 'playing') return;
     room.currentTurn = playerId;
-    if (playerId !== -1) {
-      io.to(roomId).emit('game:your_turn', { playerId });
-    }
+    if (playerId !== -1) io.to(roomId).emit('game:your_turn', { playerId });
     if (room.rollTimer) clearTimeout(room.rollTimer);
     const delay = playerId === -1 ? 1000 : 20000;
     room.rollTimer = setTimeout(() => {

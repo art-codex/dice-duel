@@ -2,55 +2,130 @@ const express = require('express');
 const auth = require('../middleware/auth');
 const userModel = require('../models/user.model');
 const { addCoins } = require('../services/coinService');
-const db = require('../config/db'); // اضافه شد
+const db = require('../config/db');
 
 const router = express.Router();
 
+// ?????? ??? ??????
 router.post('/daily-reward', auth, (req, res) => {
   try {
     const user = userModel.findUserById(req.userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
+    
     const today = new Date().toISOString().split('T')[0];
     if (user.dailyRewardClaimedAt === today) {
-      return res.status(400).json({ message: 'امروز قبلاً دریافت کرده‌اید' });
+      return res.status(400).json({ message: '????? ????? ?????? ????????' });
     }
+    
     addCoins(req.userId, 10, 'DAILY_REWARD');
     db.run('UPDATE users SET dailyRewardClaimedAt = ? WHERE id = ?', [today, req.userId]);
-    res.json({ message: '۱۰ سکه به موجودی شما اضافه شد' });
+    
+    res.json({ message: '?? ??? ?? ??? ???? ????!' });
   } catch (err) {
     console.error('daily-reward error:', err);
     res.status(500).json({ message: err.message });
   }
 });
 
+// ?????? ??? ????? ?????? (?? ????? ?????)
+router.post('/verify-telegram', auth, async (req, res) => {
+  try {
+    // ?? ???? ????? ??? ????? ?????? ???? ?? ??
+    const txns = db.query('SELECT * FROM transactions WHERE userId = ? AND type = ?', [req.userId, 'TASK_TELEGRAM']);
+    if (txns.length > 0) {
+      return res.status(400).json({ message: '????? ??? ??? ?? ????? ????????' });
+    }
+    
+    // TODO: ????? ???? ?? Telegram Bot API ???? ????? ????? ??????? ????
+    // ???? ????? ?? ????? ????? ???? ???? ????? ????? ???????
+    
+    addCoins(req.userId, 5, 'TASK_TELEGRAM');
+    res.json({ message: '? ??? ???? ????? ?? ?????? ????? ??!' });
+  } catch (err) {
+    console.error('telegram error:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ?????? ??? ????? ??????????
+router.post('/verify-instagram', auth, (req, res) => {
+  try {
+    const txns = db.query('SELECT * FROM transactions WHERE userId = ? AND type = ?', [req.userId, 'TASK_INSTAGRAM']);
+    if (txns.length > 0) {
+      return res.status(400).json({ message: '????? ??? ??? ?? ????? ????????' });
+    }
+    
+    addCoins(req.userId, 5, 'TASK_INSTAGRAM');
+    res.json({ message: '? ??? ???? ????? ?? ?????????? ????? ??!' });
+  } catch (err) {
+    console.error('instagram error:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ?????? ??? ????? ??????
+router.post('/verify-robika', auth, (req, res) => {
+  try {
+    const txns = db.query('SELECT * FROM transactions WHERE userId = ? AND type = ?', [req.userId, 'TASK_ROBIKA']);
+    if (txns.length > 0) {
+      return res.status(400).json({ message: '????? ??? ??? ?? ????? ????????' });
+    }
+    
+    addCoins(req.userId, 5, 'TASK_ROBIKA');
+    res.json({ message: '? ??? ???? ????? ?? ?????? ????? ??!' });
+  } catch (err) {
+    console.error('robika error:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ?????? ?? ?????
 router.post('/referral', auth, (req, res) => {
   try {
     const { code } = req.body;
-    if (!code) return res.status(400).json({ message: 'کد معرف الزامی است' });
-    const referredUser = userModel.findByReferralCode(code);
-    if (!referredUser || referredUser.id === req.userId) {
-      return res.status(400).json({ message: 'کد معرف نامعتبر است' });
+    if (!code) return res.status(400).json({ message: '?? ????? ?????? ???' });
+    
+    const referrer = db.query('SELECT * FROM users WHERE referralCode = ?', [code])[0];
+    if (!referrer) return res.status(404).json({ message: '?? ????? ??????? ???' });
+    if (referrer.id === req.userId) return res.status(400).json({ message: '?????????? ?? ?? ?????? ??????? ????' });
+    
+    const txns = db.query('SELECT * FROM transactions WHERE userId = ? AND type = ?', [req.userId, 'REFERRAL']);
+    if (txns.length > 0) {
+      return res.status(400).json({ message: '????? ?? ?? ????? ??????? ????????' });
     }
-    const currentUser = userModel.findUserById(req.userId);
-    if (currentUser.referredBy) {
-      return res.status(400).json({ message: 'شما قبلاً از کد معرف استفاده کرده‌اید' });
-    }
-    db.run('UPDATE users SET referredBy = ? WHERE id = ?', [referredUser.id, req.userId]);
+    
     addCoins(req.userId, 20, 'REFERRAL');
-    addCoins(referredUser.id, 20, 'REFERRAL');
-    res.json({ message: 'کد معرف اعمال شد، ۲۰ سکه به شما و دوستتان تعلق گرفت!' });
+    addCoins(referrer.id, 20, 'REFERRAL_BONUS');
+    
+    res.json({ message: '?? ???? ???? ??? ?? ??? ?? ??? ? ??????? ???? ????!' });
   } catch (err) {
     console.error('referral error:', err);
     res.status(500).json({ message: err.message });
   }
 });
 
-router.post('/verify-telegram', auth, (req, res) => {
+// ?????? ????? ??????
+router.get('/task-status', auth, (req, res) => {
   try {
-    addCoins(req.userId, 5, 'TASK_TELEGRAM');
-    res.json({ message: '۵ سکه برای عضویت در تلگرام اضافه شد' });
+    const user = userModel.findUserById(req.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    const telegramTxns = db.query('SELECT * FROM transactions WHERE userId = ? AND type = ?', [req.userId, 'TASK_TELEGRAM']);
+    const instagramTxns = db.query('SELECT * FROM transactions WHERE userId = ? AND type = ?', [req.userId, 'TASK_INSTAGRAM']);
+    const robikaTxns = db.query('SELECT * FROM transactions WHERE userId = ? AND type = ?', [req.userId, 'TASK_ROBIKA']);
+    const referralTxns = db.query('SELECT * FROM transactions WHERE userId = ? AND type = ?', [req.userId, 'REFERRAL']);
+    
+    res.json({
+      daily: user.dailyRewardClaimedAt === today,
+      telegram: telegramTxns.length > 0,
+      instagram: instagramTxns.length > 0,
+      robika: robikaTxns.length > 0,
+      referral: referralTxns.length > 0
+    });
   } catch (err) {
-    console.error('telegram error:', err);
+    console.error('task-status error:', err);
     res.status(500).json({ message: err.message });
   }
 });

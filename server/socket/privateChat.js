@@ -66,18 +66,17 @@ module.exports = function setupPrivateChat(io) {
 
     // ---------- دریافت تاریخچه پیام‌ها با یک کاربر خاص ----------
     socket.on('private:history', ({ targetUserId }, callback) => {
-      console.log(`📜 History requested: user ${socket.userId} with ${targetUserId}`);
-      const messages = db.query(
-        `SELECT id, fromUserId, toUserId, message, createdAt, isRead
-         FROM private_messages
-         WHERE (fromUserId = ? AND toUserId = ?) OR (fromUserId = ? AND toUserId = ?)
-         ORDER BY createdAt ASC LIMIT 100`,
-        [socket.userId, targetUserId, targetUserId, socket.userId]
-      );
-      console.log(`Found ${messages.length} messages`);
-      callback(messages);
-    });
-
+  const user = db.query('SELECT createdAt FROM users WHERE id = ?', [socket.userId])[0];
+  const userCreatedAt = user ? user.createdAt : '1970-01-01 00:00:00';
+  const messages = db.query(`
+    SELECT id, fromUserId, toUserId, message, createdAt, isRead
+    FROM private_messages
+    WHERE (fromUserId = ? AND toUserId = ?) OR (fromUserId = ? AND toUserId = ?)
+      AND createdAt > ?
+    ORDER BY createdAt ASC LIMIT 100
+  `, [socket.userId, targetUserId, targetUserId, socket.userId, userCreatedAt]);
+  callback(messages);
+});
     // ---------- ارسال پیام خصوصی ----------
     socket.on('private:send', ({ toUserId, message }) => {
       if (!message || message.trim() === '') return;

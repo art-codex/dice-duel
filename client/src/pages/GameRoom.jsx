@@ -1,4 +1,3 @@
-
 import Confetti from 'react-confetti';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
@@ -7,7 +6,6 @@ import { useAuth } from '../hooks/useAuth';
 import Dice from '../components/Dice';
 import CountdownTimer from '../components/CountdownTimer';
 import { motion } from 'framer-motion';
-
 
 export default function GameRoom() {
   const { roomId } = useParams();
@@ -33,35 +31,49 @@ export default function GameRoom() {
   const [chatOpen, setChatOpen] = useState(false);
   const [unreadMsgs, setUnreadMsgs] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [countdown, setCountdown] = useState(10);
 
-
-useEffect(() => {
-  if (result && !result.tie && result.winnerId === user?.id) {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setShowConfetti(true);
-    const timer = setTimeout(() => setShowConfetti(false), 4000);
-    return () => clearTimeout(timer);
-  }
-}, [result, user]);
-
-
-useEffect(() => {
-  if (!socket) return;
-  socket.on('invite:received', ({ fromUsername, bet, roomId, fromUserId }) => {
-    if (window.confirm(`${fromUsername} challenges you with ${bet} coins! Accept?`)) {
-      socket.emit('invite:accept', { inviterId: fromUserId, roomId });
-      navigate(`/game/${roomId}?mode=playing`);
-    }
-  });
-  return () => socket.off('invite:received');
-}, [socket, navigate]);
-
-
-
-
-
+  // Confetti when winning
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (result && !result.tie && result.winnerId === user?.id) {
+      setShowConfetti(true);
+      const timer = setTimeout(() => setShowConfetti(false), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [result, user]);
+
+  // Countdown timer for auto-return to lobby
+  useEffect(() => {
+    if (result) {
+      setCountdown(10);
+      const interval = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            navigate('/');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [result, navigate]);
+
+  // Invite handler
+  useEffect(() => {
+    if (!socket) return;
+    socket.on('invite:received', ({ fromUsername, bet, roomId, fromUserId }) => {
+      if (window.confirm(`${fromUsername} challenges you with ${bet} coins! Accept?`)) {
+        socket.emit('invite:accept', { inviterId: fromUserId, roomId });
+        navigate(`/game/${roomId}?mode=playing`);
+      }
+    });
+    return () => socket.off('invite:received');
+  }, [socket, navigate]);
+
+  // Turn timer
+  useEffect(() => {
     if (!currentTurn) { setTimeLeft(0); return; }
     setTimeLeft(20);
     const interval = setInterval(() => {
@@ -70,6 +82,7 @@ useEffect(() => {
     return () => clearInterval(interval);
   }, [currentTurn]);
 
+  // Auto-scroll chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
@@ -88,8 +101,12 @@ useEffect(() => {
   }, [user?.id]);
 
   const handleGameResult = useCallback((data) => {
+    console.log('?? Game result received:', data);
     setResult(data);
-    setMyRolling(false); setOppRolling(false); setTimeLeft(0); setCurrentTurn(null);
+    setMyRolling(false);
+    setOppRolling(false);
+    setTimeLeft(0);
+    setCurrentTurn(null);
   }, []);
 
   const handleGameError = useCallback((err) => {
@@ -103,6 +120,7 @@ useEffect(() => {
     setChatInput('');
   }, [chatInput, socket]);
 
+  // Socket event listeners
   useEffect(() => {
     if (!socket || !user) return;
     socket.on('game:your_turn', handleTurn);
@@ -123,21 +141,19 @@ useEffect(() => {
     };
   }, [socket, user, handleTurn, handleRollResult, handleGameResult, handleGameError, chatOpen, isBotGame, mode, roomId]);
 
-  useEffect(() => {
-    if (result) timerRef.current = setTimeout(() => navigate('/'), 10000);
-    return () => clearTimeout(timerRef.current);
-  }, [result, navigate]);
-
   const handleRollClick = () => {
     if (socket && currentTurn === user?.id && timeLeft > 0) socket.emit('game:roll');
   };
+
   const handleLeaveRoom = () => {
     if (socket && roomId) socket.emit('room:leave', roomId);
     navigate('/');
   };
-  {showConfetti && <Confetti />}
+
+  if (showConfetti) <Confetti />;
   if (error) return <div className="p-8 text-center text-neon-cyan">{error}</div>;
 
+  // ????? ???? ????? ????
   if (result) {
     const amIPlayer1 = user?.id === result.player1;
     const mySum = amIPlayer1 ? result.sum1 : result.sum2;
@@ -145,33 +161,37 @@ useEffect(() => {
     const won = result.winnerId === user?.id;
     return (
       <motion.div
-  initial={{ opacity: 0, y: 20 }}
-  animate={{ opacity: 1, y: 0 }}
-  exit={{ opacity: 0, y: -20 }}
-  transition={{ duration: 0.2 }}
->
-  
-      <div className="flex flex-col items-center p-4 gap-4 text-center">
-        <h2 className="text-3xl font-bold animate-blink">{result.tie ? '🤝 TIE' : won ? '🏆 YOU WIN!' : '💀 YOU LOSE'}</h2>
-        <div className="flex flex-col md:flex-row gap-8">
-          <div className="border-2 border-neon-cyan p-4">
-            <p>YOUR DICE</p>
-            <Dice values={amIPlayer1 ? result.dice1 : result.dice2} />
-            <p>SUM: {mySum}</p>
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        transition={{ duration: 0.2 }}
+      >
+        <div className="flex flex-col items-center p-4 gap-4 text-center">
+          <h2 className="text-3xl font-bold animate-blink">
+            {result.tie ? '?? TIE' : won ? '?? YOU WIN!' : '?? YOU LOSE'}
+          </h2>
+          <div className="flex flex-col md:flex-row gap-8">
+            <div className="border-2 border-neon-cyan p-4">
+              <p>YOUR DICE</p>
+              <Dice values={amIPlayer1 ? result.dice1 : result.dice2} />
+              <p>SUM: {mySum}</p>
+            </div>
+            <div className="border-2 border-neon-cyan p-4">
+              <p>OPPONENT DICE</p>
+              <Dice values={amIPlayer1 ? result.dice2 : result.dice1} />
+              <p>SUM: {oppSum}</p>
+            </div>
           </div>
-          <div className="border-2 border-neon-cyan p-4">
-            <p>OPPONENT DICE</p>
-            <Dice values={amIPlayer1 ? result.dice2 : result.dice1} />
-            <p>SUM: {oppSum}</p>
-          </div>
+          <button onClick={handleLeaveRoom} className="arcade-btn px-6 py-2">
+            ? LOBBY
+          </button>
+          <p className="text-sm">Auto return in {countdown}s...</p>
         </div>
-        <button>on onClick={handleLeaveRoom} className="arcade-btn px-6 py-2"⇦ LOBBY</button>
-        <p className="text-sm">Auto return in 10s...</p>
-      </div>
       </motion.div>
     );
   }
 
+  // ???? ???? ????
   return (
     <>
       {/* Chat toggle button */}
@@ -191,33 +211,35 @@ useEffect(() => {
 
       {/* Game main area */}
       <div className="flex flex-col items-center p-4 gap-6">
-  <div className="flex flex-col md:flex-row gap-8 items-center">
-    <div className="arcade-card p-6 text-center">
-      <p className="text-neon-cyan font-bold">YOUR DICE</p>
-      <Dice values={myDice} rolling={myRolling} />
-      {currentTurn === user?.id && (
-        <button onClick={handleRollClick} className="arcade-btn mt-4 px-8 py-2 text-xl">ROLL</button>
-      )}
-    </div>
-    <div className="relative">
-      <CountdownTimer seconds={20} active={currentTurn !== null && timeLeft > 0} />
-    </div>
-    <div className="arcade-card p-6 text-center">
-      <p className="text-neon-cyan font-bold">OPPONENT DICE</p>
-      <Dice values={oppDice} rolling={oppRolling} />
-    </div>
-  </div>
-  {!currentTurn && !result && (
-    <p className="text-xl arcade-glow font-display">{mode === 'waiting' ? 'WAITING FOR OPPONENT...' : 'READY?'}</p>
-  )}
-</div>
+        <div className="flex flex-col md:flex-row gap-8 items-center">
+          <div className="arcade-card p-6 text-center">
+            <p className="text-neon-cyan font-bold">YOUR DICE</p>
+            <Dice values={myDice} rolling={myRolling} />
+            {currentTurn === user?.id && (
+              <button onClick={handleRollClick} className="arcade-btn mt-4 px-8 py-2 text-xl">ROLL</button>
+            )}
+          </div>
+          <div className="relative">
+            <CountdownTimer seconds={20} active={currentTurn !== null && timeLeft > 0} />
+          </div>
+          <div className="arcade-card p-6 text-center">
+            <p className="text-neon-cyan font-bold">OPPONENT DICE</p>
+            <Dice values={oppDice} rolling={oppRolling} />
+          </div>
+        </div>
+        {!currentTurn && !result && (
+          <p className="text-xl arcade-glow font-display">
+            {mode === 'waiting' ? 'WAITING FOR OPPONENT...' : 'READY?'}
+          </p>
+        )}
+      </div>
 
       {/* Chat panel */}
       {chatOpen && (
         <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-auto md:w-96 arcade-card z-10 flex flex-col">
           <div className="border-b-4 border-neon-cyan px-4 py-2 flex justify-between items-center">
-            <span>💬 GAME CHAT</span>
-            <button onClick={() => setChatOpen(false)} className="text-neon-cyan hover:text-neon-cyan">✕</button>
+            <span>?? GAME CHAT</span>
+            <button onClick={() => setChatOpen(false)} className="text-neon-cyan hover:text-neon-cyan">?</button>
           </div>
           <div className="h-64 overflow-y-auto p-3 space-y-2" ref={chatEndRef}>
             {chatMessages.map((msg, idx) => {
@@ -235,12 +257,17 @@ useEffect(() => {
             <div ref={chatEndRef} />
           </div>
           <div className="flex p-2 border-t-2 border-neon-cyan gap-2">
-            <input className="neon-input flex-1" value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && sendChatMessage()} placeholder="Type message..." />
+            <input 
+              className="neon-input flex-1" 
+              value={chatInput} 
+              onChange={e => setChatInput(e.target.value)} 
+              onKeyPress={e => e.key === 'Enter' && sendChatMessage()} 
+              placeholder="Type message..." 
+            />
             <button onClick={sendChatMessage} className="arcade-btn px-3 py-1">SEND</button>
           </div>
         </div>
       )}
     </>
-    
   );
 }
